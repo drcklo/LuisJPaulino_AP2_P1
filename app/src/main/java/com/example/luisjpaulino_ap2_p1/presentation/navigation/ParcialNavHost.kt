@@ -16,7 +16,7 @@ fun ParcialNavHost(navHostController: NavHostController) {
             ListScreen()
         }
         composable<Screen.Registro>{
-            //Aqui va el componente registro :)
+            //Aqui va el componente registro
         }
     }
 }
