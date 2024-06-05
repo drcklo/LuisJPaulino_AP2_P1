@@ -4,10 +4,11 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.example.luisjpaulino_ap2_p1.data.repository.ServicioRepository
 import com.example.luisjpaulino_ap2_p1.presentation.ListScreen
 
 @Composable
-fun ParcialNavHost(navHostController: NavHostController) {
+fun ParcialNavHost(navHostController: NavHostController, repository: ServicioRepository) {
     NavHost(
         navController = navHostController,
         startDestination = Screen.List
