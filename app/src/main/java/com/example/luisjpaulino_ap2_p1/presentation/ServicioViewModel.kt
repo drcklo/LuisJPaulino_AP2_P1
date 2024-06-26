@@ -2,35 +2,61 @@ package com.example.luisjpaulino_ap2_p1.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.luisjpaulino_ap2_p1.data.local.entities.ServicioEntity
+import com.example.luisjpaulino_ap2_p1.data.remote.dto.ServicioDto
 import com.example.luisjpaulino_ap2_p1.data.repository.ServicioRepository
+import com.example.luisjpaulino_ap2_p1.util.Resource
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class ServicioViewModel(private val repository: ServicioRepository, private val servicioId: Int) :
+@HiltViewModel
+class ServicioViewModel @Inject constructor (private val repository: ServicioRepository) :
     ViewModel() {
 
-    var uiState = MutableStateFlow(ServicioUIState())
-        private set
-
-    val servicios = repository.getServicios().stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = emptyList()
-    )
+    private val _uiState = MutableStateFlow(ServicioUIState())
+    val uiState = _uiState.asStateFlow()
+    private val servicioId: Int = 0
+    fun getServicios(){
+        repository.getServicios().onEach { result ->
+            when (result) {
+                is Resource.Loading -> _uiState.update {
+                    it.copy(isLoading = true)
+                }
+                is Resource.Success -> _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        servicios = result.data ?: emptyList()
+                    )
+                }
+                is Resource.Error -> _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = result.message
+                    )
+                }
+            }
+        }.launchIn(viewModelScope)
+    }
 
     init {
         viewModelScope.launch {
-            val servicio = repository.getServicio(servicioId)
+            getServicios()
+        }
+    }
 
+    fun getServicio() {
+        viewModelScope.launch {
+            val servicio = repository.getServicio(servicioId)
             servicio?.let {
-                uiState.update() {
+                _uiState.update {
                     it.copy(
                         servicioId = servicio.servicioId,
-                        descripcion = servicio.descripcion ?: "",
+                        descripcion = servicio.descripcion,
                         precio = servicio.precio
                     )
                 }
@@ -40,20 +66,27 @@ class ServicioViewModel(private val repository: ServicioRepository, private val 
 
     fun saveServicio() {
         viewModelScope.launch {
-            repository.saveServicio(uiState.value.toEntity())
-            limpiarServicio()
+            try {
+                if (uiState.value.servicioId != null) {
+                    repository.updateServicio(uiState.value.toEntity())
+                } else {
+                    repository.addServicio(uiState.value.toEntity())
+                }
+            }catch (e: Exception){
+                e.printStackTrace()
+            }
         }
     }
 
     fun limpiarServicio() {
         viewModelScope.launch {
-            uiState.value = ServicioUIState()
+            _uiState.value = ServicioUIState()
         }
     }
 
     fun borrarServicio() {
         viewModelScope.launch {
-            repository.deleteServicio(uiState.value.toEntity())
+            repository.deleteServicio(uiState.value.servicioId ?: 0)
         }
     }
 
@@ -67,27 +100,23 @@ class ServicioViewModel(private val repository: ServicioRepository, private val 
             else -> null
         }
 
-        if (descripcion.matches(regex)) {
-            uiState.update {
-                it.copy(
-                    descripcion = descripcion, errorDescripcion = errorDescripcion
-                )
-            }
+        _uiState.update {
+            it.copy(
+                descripcion = descripcion, errorDescripcion = errorDescripcion
+            )
         }
     }
 
     fun onPrecioChange(precio: String) {
 
-        val regex = Regex("/^\\d*\\.?\\d*\$/")
+        val regex = Regex("^\\d*\\.?\\d*\$")
 
         val precio_ = precio.toDoubleOrNull()
 
-        uiState.update {
+        _uiState.update {
             it.copy(
                 precio = precio_,
-                errorPrecio = if (!precio_.toString()
-                        .matches(regex)
-                ) null else "El precio solo puede contener números"
+                errorPrecio = if (precio_ != null && precio.matches(regex)) null else "El precio solo puede contener números"
             )
         }
     }
@@ -96,16 +125,20 @@ class ServicioViewModel(private val repository: ServicioRepository, private val 
         return false
     }
 
+    data class ServicioUIState(
+        val servicioId: Int? = null,
+        var descripcion: String? = "",
+        var precio: Double? = 0.0,
+        var errorDescripcion: String? = null,
+        var errorPrecio: String? = null,
+        val servicios: List<ServicioDto> = emptyList(),
+        val isLoading: Boolean = false,
+        val errorMessage: String? = null
+    )
+
+    fun ServicioUIState.toEntity() = ServicioDto(
+        servicioId = servicioId ?: 0,
+        descripcion = descripcion ?: "",
+        precio = precio ?: 0.0
+    )
 }
-
-data class ServicioUIState(
-    val servicioId: Int? = null,
-    var descripcion: String? = "",
-    var precio: Double? = 0.0,
-    var errorDescripcion: String? = null,
-    var errorPrecio: String? = null
-)
-
-fun ServicioUIState.toEntity() = ServicioEntity(
-    servicioId = servicioId, descripcion = descripcion, precio = precio
-)

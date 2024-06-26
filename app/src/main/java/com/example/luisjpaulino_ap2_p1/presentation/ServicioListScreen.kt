@@ -22,19 +22,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.luisjpaulino_ap2_p1.data.local.entities.ServicioEntity
+import com.example.luisjpaulino_ap2_p1.data.remote.dto.ServicioDto
 
 @Composable
 fun ServicioListScreen(
-    viewModel: ServicioViewModel,
-    verSevicio: (ServicioEntity) -> Unit,
+    viewModel: ServicioViewModel = hiltViewModel(),
+    verSevicio: (ServicioDto) -> Unit,
     onAddServicio: () -> Unit
 ) {
-    val servicios by viewModel.servicios.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     ServicioListBody(
-        servicios = servicios,
+        uiState = uiState,
+        servicios = uiState.servicios,
         onAddServicio = onAddServicio,
         onVerServicio = verSevicio
     )
@@ -44,9 +46,11 @@ fun ServicioListScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ServicioListBody(
-    servicios: List<ServicioEntity>,
+    uiState: ServicioViewModel.ServicioUIState,
+    viewModel: ServicioViewModel = hiltViewModel(),
+    servicios: List<ServicioDto>,
     onAddServicio: () -> Unit,
-    onVerServicio: (ServicioEntity) -> Unit
+    onVerServicio: (ServicioDto) -> Unit
 ) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -70,27 +74,35 @@ fun ServicioListBody(
                 .padding(4.dp)
                 .fillMaxWidth()
         ) {
-            Row (
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
-            ){
+            ) {
                 Text(text = "ID", modifier = Modifier.weight(0.5f))
-                Text(text ="Descripcion", modifier = Modifier.weight(1f))
+                Text(text = "Descripcion", modifier = Modifier.weight(1f))
                 Text(text = "Precio", modifier = Modifier.weight(1f))
             }
 
             HorizontalDivider()
 
-            LazyColumn (modifier = Modifier.fillMaxSize()){
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(servicios) { servicio ->
                     Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onVerServicio(servicio) }
-                    ){
-                        Text(text = servicio.servicioId.toString(), modifier = Modifier.weight(0.5f))
-                        Text(text = servicio.descripcion?:"", modifier = Modifier.weight(1f))
-                        Text(text = servicio.precio.toString() + "$", modifier = Modifier.weight(1f))
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onVerServicio(servicio) }
+                    ) {
+                        Text(
+                            text = servicio.servicioId.toString(),
+                            modifier = Modifier.weight(0.5f)
+                        )
+                        Text(text = servicio.descripcion ?: "", modifier = Modifier.weight(1f))
+                        Text(
+                            text = servicio.precio.toString() + "$",
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
             }
